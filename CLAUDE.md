@@ -25,9 +25,15 @@ week12_fault_injection/  # Network simulator, partition tests, project integrati
 
 The master plan is at `docs/plan.md` (the final version; the earlier draft was deleted).
 
+## Current Progress
+
+- **Week 1 (TCP echo)**: Complete. Uses `threading` + raw sockets + text protocol (colon-separated, newline-delimited). Entry points: `week01_tcp/serve.py`, `week01_tcp/client.py`.
+- **Week 2 (RPC)**: In progress. Uses `asyncio` + length-prefix JSON. Entry points: `week02_rpc/server_main.py`, `week02_rpc/client_main.py`. Module structure: `rpc/` (codec, client, server) and `network/` (simulator skeleton).
+- **Weeks 3–12**: Not started.
+
 ## Language Strategy
 
-- **Weeks 1–12**: Python with `asyncio` for all distributed logic. The goal is to understand distributed systems, not fight C++ memory/threading simultaneously.
+- **Weeks 1–12**: Python. Week 1 intentionally uses `threading` + raw sockets to understand low-level TCP behavior. Week 2 onward switches to `asyncio` for all distributed logic.
 - **After week 12**: C++ reimplementation of core modules (RPC, WAL, Raft state machine) for migration to BlockServe, ClusterPilot, and IM systems.
 - See `docs/plan.md` for the full 12-week roadmap and design rationale.
 
@@ -77,6 +83,24 @@ Request/response shape:
 ```
 
 Week 1 uses a simpler text protocol for learning: `request_id:1,body:hello` (colon-separated, newline-delimited).
+
+### Week 2 Module Layout
+
+```
+week02_rpc/
+├── rpc/
+│   ├── __init__.py          # empty
+│   ├── codec.py             # encode_message / decode_message (length-prefix JSON)
+│   ├── client.py            # Client class: timeout, retry, seq management
+│   └── server.py            # Server class: dispatch, dedup_table, in-memory KV
+├── network/
+│   ├── __init__.py          # empty
+│   └── simulator.py         # Network class skeleton (delay, drop, partition)
+├── server_main.py           # Entry point: creates Server, calls asyncio.run(server.run())
+└── client_main.py           # Entry point: interactive CLI over Client.call()
+```
+
+Imports use flat module references (`import codec`, not `from rpc import codec`), so `PYTHONPATH` must include `week02_rpc/` (automatic when running from that directory). Do not convert these to package-relative imports unless also updating all callers and `sys.path`.
 
 ## WAL and fsync Rules
 
@@ -136,20 +160,35 @@ Every week must produce three files inside its directory:
 
 ## Build & Run Commands
 
-### Python (all weeks 1–12)
+### Week 1 (threading + raw sockets)
 
 ```bash
-# Run server
-python3 server.py
+# Server (blocking, one thread per connection)
+cd week01_tcp && python3 serve.py
 
-# Run client
-python3 client.py
-
-# Run tests (when test framework is added)
-python3 -m pytest test.py -v
+# Client (interactive, with timeout + retry)
+cd week01_tcp && python3 client.py
 ```
 
-### C++ (post-week-12 reimplementation, not yet active)
+### Week 2 (asyncio + length-prefix JSON)
+
+Modules use flat imports (`import codec`, not `from rpc import codec`), so you must run from within `week02_rpc/` or set `PYTHONPATH`:
+
+```bash
+# Server
+cd week02_rpc && python3 server_main.py
+
+# Interactive client
+cd week02_rpc && python3 client_main.py
+```
+
+### Tests (no test framework yet; run manually for now)
+
+```bash
+cd week02_rpc && python3 -c "from rpc import codec; ..."
+```
+
+### C++ (post-week-12, not yet active)
 
 ```bash
 mkdir -p build && cd build && cmake .. && make -j$(nproc)
