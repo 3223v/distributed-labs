@@ -2,12 +2,15 @@ import asyncio
 import json
 from rpc import codec
 from common import log
+from kv.store import KvStore
 
 class Server:
-    def __init__(self):
+    def __init__(self, wal_path: str, sync_mode = "always"):
         self.dedup_table = {}   # client_id -> {"last_seq": int, "last_result": dict}
-        self.hash_map = {}      # key -> value
         self.lock = asyncio.Lock()
+        self.wal_path = wal_path
+        self.sync_mode = sync_mode
+        self.kvstore = KvStore(self.wal_path, self.sync_mode)
 
     async def dispatch(self, req: dict) -> dict:
         request_id = req.get("request_id")
@@ -50,7 +53,7 @@ class Server:
                     return record["last_result"]
 
                 # 新请求（seq > last_seq）→ 执行 Put
-                self.hash_map[key] = value
+                await self.kvstore.put(key,value,client_id,seq)
                 resp = {
                     "request_id": request_id,
                     "ok": True,
@@ -65,11 +68,12 @@ class Server:
 
         elif method == "get":
             async with self.lock:
-                if key in self.hash_map:
+                res = await self.kvstore.get(key)
+                if res is not None:
                     return {
                         "request_id": request_id,
                         "ok": True,
-                        "result": self.hash_map[key],
+                        "result": res,
                         "error": ""
                     }
                 else:
@@ -137,5 +141,5 @@ class Server:
             await server.serve_forever()
 
 if __name__ == "__main__":
-    server = Server()
+    server = Server("data/1.log")
     asyncio.run(server.run())
