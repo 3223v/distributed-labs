@@ -100,6 +100,16 @@ class Server:
                 "error": ""
             }
 
+        elif method == "del":
+            async with self.lock:
+                await self.kvstore.delete(key,client_id,seq)
+                return {
+                    "request_id":request_id,
+                    "ok":True,
+                    "result":"OK",
+                    "error":""
+                }
+
         else:
             return {
                 "request_id": request_id,

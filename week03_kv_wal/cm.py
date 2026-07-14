@@ -1,3 +1,5 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rpc import client
 import asyncio
 
@@ -39,6 +41,12 @@ while True:
             continue
         resp = asyncio.run(rpc_client.call("echo", {"value": " ".join(parts[1:])}))
         print("<", resp.get("result", resp.get("error", "")))
+    elif cmd == "del":
+        if len(parts) < 2:
+            print("< 用法: get <key>")
+            continue
+        resp = asyncio.run(rpc_client.call("del", {"key": parts[1]}))
+        print("<", resp.get("result", resp.get("error", "")))
 
     else:
-        print("< 未知命令:", cmd, "支持: ping / get / put / quit")
+        print("< 未知命令:", cmd, "支持: ping / get / put / del / quit ") 
