@@ -2,7 +2,7 @@
 
 ## 1. 总目标
 
-本计划不是连续完成 12 个互不相关的小实验，而是在 12 周内持续开发、重构和增强同一个项目：
+本计划在 12 周内持续开发、重构和增强同一个项目：
 
 ```text
 mini-raft-kv
@@ -32,8 +32,6 @@ client -> 3/5 节点 Raft 集群 -> replicated KV store
 client -> router -> 多个 shard group -> 每个 shard group 使用 Raft 复制
 ```
 
-12 周内，所有代码都必须进入同一个仓库。每周不是新建一个 `weekXX` 项目，而是给现有系统增加一个可运行的里程碑。
-
 最终能力目标：
 
 ```text
@@ -57,15 +55,6 @@ client -> router -> 多个 shard group -> 每个 shard group 使用 Raft 复制
 
 ```text
 mini-raft-kv/
-```
-
-禁止采用以下方式：
-
-```text
-week01_tcp/
-week02_rpc/
-week03_kv_wal/
-...
 ```
 
 每周完成后，系统仍然必须能从仓库根目录启动和测试。
@@ -150,32 +139,6 @@ client -> RPC -> 当前复制引擎 -> KV 状态机 -> storage
 
 允许功能暂时不完整，但不允许主干长期不可运行。
 
----
-
-### 2.4 每周通过里程碑标签保存历史
-
-不创建 12 个目录，而是使用 Git 标签或里程碑分支保存阶段状态：
-
-```text
-milestone/week-01-transport
-milestone/week-02-rpc
-milestone/week-03-local-kv
-...
-milestone/week-12-release
-```
-
-推荐每周结束打标签：
-
-```bash
-git tag week-01
-git tag week-02
-...
-git tag week-12
-```
-
-这样既保留学习过程，又不会把代码拆成 12 份。
-
----
 
 ## 3. 核心技术原则
 
@@ -205,15 +168,6 @@ git tag week-12
 3. Python asyncio 适合定时器、心跳、超时、故障注入和多节点模拟
 4. Python 版本跑通后，再用 C++ 复刻核心模块，收益更高
 ```
-
-语言路线：
-
-```text
-阶段 1：Python asyncio 跑通所有分布式逻辑
-阶段 2：C++ 复刻 RPC、WAL 和 Raft 状态机
-阶段 3：迁移到 BlockServe、ClusterPilot 或 IM 系统
-```
-
 ---
 
 ### 3.3 节点内部固定采用 Actor 模型
@@ -508,66 +462,20 @@ mini-raft-kv/
     inject_fault.py
     inspect_wal.py
 
-  tests/
-    unit/
-      test_codec.py
-      test_wal.py
-      test_snapshot.py
-      test_state_machine.py
-      test_raft_log.py
-
-    integration/
-      test_local_kv.py
-      test_primary_backup.py
-      test_sharding.py
-      test_raft_cluster.py
-      test_restart_recovery.py
-
-    fault/
-      test_delay.py
-      test_drop.py
-      test_partition.py
-      test_leader_crash.py
-      test_duplicate_request.py
-      test_corrupted_wal.py
-
   docs/
     design.md
     protocol.md
     consistency.md
     failure-cases.md
     project-mapping.md
-
-    decisions/
-      0001-actor-model.md
-      0002-length-prefix-json.md
-      0003-fsync-semantics.md
-      0004-replication-engine.md
-      0005-linearizable-read.md
-
-    milestones/
-      week-01.md
-      week-02.md
-      week-03.md
-      week-04.md
-      week-05.md
-      week-06.md
-      week-07.md
-      week-08.md
-      week-09.md
-      week-10.md
-      week-11.md
-      week-12.md
 ```
 
 关键要求：
 
 ```text
-1. 每周只修改或新增上述目录中的模块
-2. 不建立 week01、week02 等独立代码工程
-3. 测试按 unit、integration、fault 分类，而不是按周分类
-4. 每周总结放到 docs/milestones，不复制代码
-5. 最终启动入口始终是 src/mini_raft_kv/app.py 或 scripts/start_cluster.py
+ 每周只修改或新增上述目录中的模块
+ 每周总结放到 docs/milestones，不复制代码
+ 最终启动入口始终是 src/mini_raft_kv/app.py 或 scripts/start_cluster.py
 ```
 
 ---
@@ -686,7 +594,6 @@ src/mini_raft_kv/rpc/server.py
 src/mini_raft_kv/rpc/client.py
 src/mini_raft_kv/observability/logger.py
 scripts/start_local.py
-tests/integration/test_transport.py
 ```
 
 ### 代码任务

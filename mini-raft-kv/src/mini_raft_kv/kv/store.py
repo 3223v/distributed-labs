@@ -1,6 +1,6 @@
 from mini_raft_kv.common import log
-from mini_raft_kv.rpc import codec
 from typing import Optional
+from mini_raft_kv.storage import wal
 
 class KvStore:
     def __init__(self, wal_path: str, sync_mode="always"):

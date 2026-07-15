@@ -1,7 +1,7 @@
 import asyncio
 from mini_raft_kv.rpc.server import Server
 
-asyncio def main():
+async def main():
     srv = Server()
     await srv.run()
 

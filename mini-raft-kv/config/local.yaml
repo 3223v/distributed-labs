@@ -1,0 +1,20 @@
+# mini-raft-kv 本地开发配置
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+
+client:
+  host: "127.0.0.1"
+  port: 8000
+  timeout: 5.0
+  max_retries: 3
+
+wal:
+  path: "data/wal.log"
+  sync_mode: always          # always | batch
+
+log:
+  level: info                # debug | info | warn | error
+  file: null                 # null = 只输出到控制台
+  color: true
