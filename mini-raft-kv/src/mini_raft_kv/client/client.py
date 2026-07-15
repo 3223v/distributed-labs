@@ -1,6 +1,6 @@
 import asyncio
-from rpc import codec  
-from common import log
+from mini_raft_kv.common import log
+from mini_raft_kv.rpc import codec
 
 class Client:
     def __init__(self, server_host, server_port, client_id, timeout=5.0):
@@ -11,7 +11,8 @@ class Client:
         self.request_id = 0   # 每次新请求 +1，重试也 +1（用于日志）
         self.timeout = timeout
         self.max_retries = 3
-
+    # method : get put echo ping del cas
+    # params :
     async def call(self, method: str, params: dict = None) -> dict:
         """发送一次 RPC 调用，自动处理超时和重试"""
         self.seq += 1                     # 新请求的序列号

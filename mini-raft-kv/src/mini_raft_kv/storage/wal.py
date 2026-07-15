@@ -1,8 +1,8 @@
 import os
-from common import log
 import json
 import asyncio
 import binascii
+from mini_raft_kv.common import log
 # {"crc32": 123456789, "op": "Put", "key": "x", "value": "1", "client_id": "c1", "seq": 1}
 
 class WAL:

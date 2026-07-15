@@ -1,7 +1,7 @@
 import asyncio
 import json
-from rpc import codec
-from observability import log
+from mini_raft_kv.common import log
+from mini_raft_kv.rpc import codec
 
 class Server:
     def __init__(self):

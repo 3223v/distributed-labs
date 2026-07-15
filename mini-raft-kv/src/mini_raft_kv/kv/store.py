@@ -1,5 +1,5 @@
-from common import log
-from storage import wal
+from mini_raft_kv.common import log
+from mini_raft_kv.rpc import codec
 from typing import Optional
 
 class KvStore:
