@@ -2,14 +2,18 @@ import asyncio
 import json
 from mini_raft_kv.common import log
 from mini_raft_kv.rpc import codec
+from mini_raft_kv.kv import ClientTable
+from mini_raft_kv.rpc import KvStore
 
 class Server:
-    def __init__(self):
-        self.dedup_table = {}   # client_id -> {"last_seq": int, "last_result": dict}
-        self.hash_map = {}      # key -> value
+    def __init__(self, v):
+        self.v = v
+        self.kv = KvStore()
+        self.ct = ClientTable()
         self.lock = asyncio.Lock()
 
     async def dispatch(self, req: dict) -> dict:
+        request_v = req.get("v")
         request_id = req.get("request_id")
         client_id = req.get("client_id")
         seq = req.get("seq")
@@ -17,8 +21,23 @@ class Server:
             return {
                 "request_id": request_id if request_id else 0,
                 "ok": False,
-                "result": "",
-                "error": "信息不全"
+                "result": None,
+                "error": {
+                    "code" : "2",
+                    "message" :"消息不全",
+                    "data" : None
+                }
+            }
+        if request_v is None or request_v != self.v:
+            return {
+                "request_id": request_id if request_id else 0,
+                "ok": False,
+                "result": None,
+                "error": {
+                    "code" :"4",
+                    "message" :"v错误",
+                    "data" : None
+                }
             }
         method = req.get("method", "").lower()
         params = req.get("params", {})
@@ -26,45 +45,49 @@ class Server:
         value = params.get("value", "")
         if method == "put":
             async with self.lock:
-                # 初始化去重记录
-                if client_id not in self.dedup_table:
-                    self.dedup_table[client_id] = {
-                        "last_seq": -1,
-                        "last_result": None
-                    }
-                record = self.dedup_table[client_id]
-
+                if self.ct.check(client_id,seq) == "new":
+                    self.ct.record(client_id,-1,True,None,None)
+                
                 # 序列号回退 → 错误
-                if seq < record["last_seq"]:
+                if self.ct.check(client_id,seq) == "stale":
                     log.warn("过期请求，拒绝", client=client_id, seq=seq)
                     return {
                         "request_id": request_id,
                         "ok": False,
-                        "result": "",
-                        "error": "seq 回退，拒绝处理"
+                        "result": None,
+                        "error": {
+                            "code" :"1",
+                            "message" :"seq回退，拒绝",
+                            "data" :None
+                        }
                     }
 
                 # 重复请求 → 返回缓存结果
-                if seq == record["last_seq"]:
+                if self.ct.check(client_id,seq) == "duplicate":
                     log.info("重复请求", client=client_id, seq=seq)
-                    return record["last_result"]
+                    return {
+                        "request_id" : request_id,
+                        "ok" : self.ct.return_old.get("last_ok",None),
+                        "result" : self.ct.return_old.get("last_result",None),
+                        "error" :self.ct.return_old.get("last_error",None),
+                    }
 
                 # 新请求（seq > last_seq）→ 执行 Put
-                self.hash_map[key] = value
+                kv_resp = self.kv.put(key,value,client_id,seq)
                 resp = {
                     "request_id": request_id,
-                    "ok": True,
-                    "result": "OK",
-                    "error": ""
+                    "ok": kv_resp.get("ok",None),
+                    "result": kv_resp.get("result",None)
+                    "error": kv_resp.get("error",None)
                 }
                 # 更新去重表
-                record["last_seq"] = seq
-                record["last_result"] = resp
+                self.ct.record(client_id,seq,resp.get("ok",None),resp.get("result",None),resp.get("error",None))
                 log.info("首次请求", client=client_id, seq=seq)
                 return resp
 
         elif method == "get":
             async with self.lock:
+                
                 if key in self.hash_map:
                     return {
                         "request_id": request_id,

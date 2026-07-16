@@ -3,34 +3,44 @@ from mini_raft_kv.common import log
 from mini_raft_kv.rpc import codec
 
 class Client:
-    def __init__(self, server_host, server_port, client_id, timeout=5.0):
+    def __init__(self, server_host, server_port, v, client_id, timeout=5.0):
         self.server_host = server_host
         self.server_port = server_port
         self.client_id = client_id
-        self.seq = 0          # 每次新请求 +1，重试不变
-        self.request_id = 0   # 每次新请求 +1，重试也 +1（用于日志）
+        self.seq = 0          # 
+        self.request_id = 0   # 
         self.timeout = timeout
         self.max_retries = 3
-    # method : get put echo ping del cas
-    # params :
+        self.v = v
+        self.config_id = 1
+
+
+        # {
+        #     "v": 1,
+        #     "request_id": 42,
+        #     "client_id": "c1",
+        #     "seq": 7,
+        #     "config_id": 3,
+        #     "method": "Put",
+        #     "params": {"key": "x", "value": "1"}
+        # }
     async def call(self, method: str, params: dict = None) -> dict:
-        """发送一次 RPC 调用，自动处理超时和重试"""
-        self.seq += 1                     # 新请求的序列号
-        self.request_id += 1              # 新请求的ID
-        # 固定本次调用的 seq 和 request_id（重试时不改变）
-        current_seq = self.seq
-        current_req_id = self.request_id
+        #  如果是读写，才自增，而且重试不增加      
+        if method.lower() == "put" or method.lower() == "cas" or method.lower() == "del" :
+            self.seq += 1
 
-        for attempt in range(self.max_retries):
-            # 构造请求
-            request = {
-                "request_id": current_req_id,
-                "client_id": self.client_id,
-                "seq": current_seq,
-                "method": method,
-                "params": params or {}
+        for attempr in range(self.max_retries):
+            #request_id 默认自增，发消息就会自增一次
+            self.request_id +=1
+            req = {
+                "v" : self.v,
+                "seq" : self.seq,
+                "request_id" : self.request_id,
+                "client_id" : self.client_id,
+                "config_id" : self.config_id,
+                "method" : method,
+                "params" : params
             }
-
             try:
                 # 建立连接
                 reader, writer = await asyncio.open_connection(
@@ -53,22 +63,21 @@ class Client:
                 await writer.wait_closed()
 
                 # 检查响应是否匹配当前 request_id（防止乱序）
-                if response.get("request_id") != current_req_id:
+                if response.get("request_id") != self.request_id:
                     # 理论上不会发生，但可作为防御
                     log.warn("响应 request_id 不匹配", response = response)
                     continue
 
-                # 返回核心字段
                 return {
-                    "ok": response.get("ok", False),
-                    "result": response.get("result", ""),
-                    "error": response.get("error", "")
+                    "ok" : response.get("ok"),
+                    "result" : response.get("result"),
+                    "error" : response.get("error")
                 }
 
             except asyncio.TimeoutError:
                 log.warn("超时", request_id=current_req_id, attempt=attempt+1)
                 # 超时重试，request_id 递增
-                current_req_id += 1
+                self.request_id += 1
                 # 关闭可能残留的连接
                 try:
                     writer.close()
@@ -93,4 +102,9 @@ class Client:
                 continue
 
         # 所有重试失败
-        return {"ok": False, "result": "", "error": "max retries exceeded"}
+        return {
+                "ok": False, 
+                "result": "",
+                "error": "max retries exceeded"
+            }
+
