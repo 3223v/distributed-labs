@@ -1,6 +1,6 @@
 import asyncio
 from mini_raft_kv.common import log
-from mini_raft_kv.rpc import codec
+from mini_raft_kv.common import codec
 
 class Client:
     def __init__(self, server_host, server_port, v, client_id, timeout=5.0):
@@ -24,6 +24,7 @@ class Client:
         #     "method": "Put",
         #     "params": {"key": "x", "value": "1"}
         # }
+    
     async def call(self, method: str, params: dict = None) -> dict:
         #  如果是读写，才自增，而且重试不增加      
         if method.lower() == "put" or method.lower() == "cas" or method.lower() == "del" :
@@ -107,4 +108,3 @@ class Client:
                 "result": "",
                 "error": "max retries exceeded"
             }
-

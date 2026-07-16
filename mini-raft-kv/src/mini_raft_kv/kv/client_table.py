@@ -1,5 +1,5 @@
 
-class ClinetTable:
+class ClientTable:
     def __init__(self):
         self.data = dict()
     # 重复，旧的，新的
@@ -17,7 +17,7 @@ class ClinetTable:
     def record(self, client_id, seq, ok, result, error):
         self.data.[client_id] = {
             "last_seq" : seq,
-            "lats_ok" : ok,
+            "last_ok" : ok,
             "last_result" : result,
             "last_error" : error
         }
