@@ -2,12 +2,14 @@ import asyncio
 import json
 from mini_raft_kv.common import log
 from mini_raft_kv.common import codec
-#cg
-#eg
+from mini_raft_kv.common.command import Command
+from mini_raft_kv.common.config import ServerConfig
+from mini_raft_kv.common.query import Query
+from mini_raft_kv.replication.base import Engine
 
 class Server:
 
-    def __init__(self, eg:Engine, cg:_ServerConfig):
+    def __init__(self, eg:Engine, cg:ServerConfig):
         self.eg = eg
         self.cg = cg
 
@@ -29,7 +31,7 @@ class Server:
                 #     "method": "Put",
                 #     "params": {"key": "x", "value": "1","version":}
                 # }
-                cmd = Commmand(
+                cmd = Command(
                     req.get("method"),
                     req.get("params",{}).get("key"),
                     req.get("params",{}).get("value"),
@@ -57,7 +59,7 @@ class Server:
                             "key" : None,
                             "value" : "pong",
                             "version" : None
-                        }
+                        },
                         "error":None
                     }
                 elif req.get("method").lower() == "echo":
@@ -67,7 +69,7 @@ class Server:
                             "key" : None,
                             "value" : req.get("params",{}).get("value",""),
                             "version" : None
-                        }
+                        },
                         "error":None
                     }
                 else:

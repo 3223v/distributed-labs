@@ -3,7 +3,8 @@ class ClientTable:
     def __init__(self):
         self.data = dict()
     # 重复，旧的，新的
-    def check(self, client_id, seq) -> "duplicate" | "stale" | "new":
+    # "duplicate" | "stale" | "new"
+    def check(self, client_id, seq) -> str:
         d = self.data.get(client_id)
         if d:
             last_seq = d.get("last_seq")
@@ -15,7 +16,7 @@ class ClientTable:
                 return "new"
         return "new"
     def record(self, client_id, seq, ok, result, error):
-        self.data.[client_id] = {
+        self.data[client_id] = {
             "last_seq" : seq,
             "last_ok" : ok,
             "last_result" : result,

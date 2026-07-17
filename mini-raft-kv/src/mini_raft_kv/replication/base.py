@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
 
 class Engine(ABC):
-    @abstractmethod
-    def query():
+    def __init__(self):
         pass
-        
+
     @abstractmethod
-    def submit():
+    async def query(self)->dict:
+        pass
+
+    @abstractmethod
+    async def submit(self)->dict:
         pass

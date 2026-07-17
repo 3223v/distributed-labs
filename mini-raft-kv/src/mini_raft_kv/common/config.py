@@ -2,7 +2,7 @@
 配置系统：从 YAML 文件读取，提供默认值。
 
 用法:
-    from mini_raft_kv.config import load_config
+    from mini_raft_kv.common.config import load_config
     cfg = load_config("config/local.yaml")
     print(cfg.server.host, cfg.server.port)
 """
@@ -10,7 +10,7 @@
 import os
 
 
-class _ServerConfig:
+class ServerConfig:
     def __init__(self, data: dict):
         self.host = data.get("host", "127.0.0.1")
         self.port = data.get("port", 8000)
@@ -19,7 +19,7 @@ class _ServerConfig:
         return f"ServerConfig(host={self.host}, port={self.port})"
 
 
-class _ClientConfig:
+class ClientConfig:
     def __init__(self, data: dict):
         self.host = data.get("host", "127.0.0.1")
         self.port = data.get("port", 8000)
@@ -30,7 +30,7 @@ class _ClientConfig:
         return f"ClientConfig(host={self.host}, port={self.port})"
 
 
-class _WalConfig:
+class WalConfig:
     def __init__(self, data: dict):
         self.path = data.get("path", "data/wal.log")
         self.sync_mode = data.get("sync_mode", "always")
@@ -39,7 +39,7 @@ class _WalConfig:
         return f"WalConfig(path={self.path}, sync_mode={self.sync_mode})"
 
 
-class _LogConfig:
+class LogConfig:
     def __init__(self, data: dict):
         self.level = data.get("level", "info")
         self.file = data.get("file", None)
@@ -51,10 +51,10 @@ class _LogConfig:
 
 class Config:
     def __init__(self, data: dict):
-        self.server = _ServerConfig(data.get("server", {}))
-        self.client = _ClientConfig(data.get("client", {}))
-        self.wal = _WalConfig(data.get("wal", {}))
-        self.log = _LogConfig(data.get("log", {}))
+        self.server = ServerConfig(data.get("server", {}))
+        self.client = ClientConfig(data.get("client", {}))
+        self.wal = WalConfig(data.get("wal", {}))
+        self.log = LogConfig(data.get("log", {}))
 
     def __repr__(self):
         return f"Config(server={self.server}, client={self.client})"

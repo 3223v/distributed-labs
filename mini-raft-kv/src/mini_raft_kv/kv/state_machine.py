@@ -1,5 +1,7 @@
-from mini_raft_kv.kv import Command
-
+from mini_raft_kv.common.command import Command
+from mini_raft_kv.common.query import Query
+from mini_raft_kv.kv.client_table import ClientTable
+from functools import singledispatch
 
 class StateMachine():
 
@@ -7,29 +9,88 @@ class StateMachine():
         self.ct = ClientTable()
         self.dt = dict()
 
-    # 上层自校验cmd的正确性
-    def apply(self,cmd :Command):
+                # 这里错误出参应该是
+                # {
+                #     "ok": True/False,
+                #     "result": None,
+                #     "error" : None
+                # }
+                # result = {
+                #     "key":"",
+                #     "value":"",
+                #     "version":""
+                # }
+                # error = {
+                #     "code":"",
+                #     "data":"",
+                #     "message":""
+                # }
 
-        if cmd.op.lower() == "get":
-            if self.dt.get(cmd.key) is None:
-                return {
-                    "cmd": cmd,
-                    "result" : {
-                        ""
-                    } 
+    def apply(self, cmd) ->dict:
+        if self.ct.check(cmd.client_id,cmd.seq) == "new":
+            if cmd.op.lower() == "put":
+                # put in dt save in dt
+                self.dt[cmd.key] = cmd.value
+                re = {
+                    "ok":True,
+                    "result":{
+                        "key" :"",
+                        "value" : self.dt.get(cmd.key),
+                        "version":""
+                    },
+                    "error":None
                 }
+                self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
+                return re
+            elif cmd.op.lower() == "del":
+                tmp = self.dt.pop(cmd.key)
+                re = {
+                    "ok":True,
+                    "result":{
+                        "key" :"",
+                        "value" : tmp,
+                        "version":""
+                    },
+                    "error":None
+                }
+                self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
+                return re
+            elif cmd.op.lower() == "cas":
+                pass
+            else:
+                return {
+                    "ok" : False,
+                    "result" : None,
+                    "error" : {
+                        "code" : "",
+                        "data" : "",
+                        "message" : "未知错误"
+                    }
+                }
+        elif self.ct.check(cmd.client_id,cmd.seq) == "duplicate":
+
+        else:
             return 
 
-
-        elif cmd.op.lwer() == "put":
-
-        elif cmd.op.lower() == "del":
-        
-        elif cmd.op.lower() == "cas":
-
-        # ping echo 让网络层处理即可
-        else:
-
-
+    def read(self, qry) ->dict:
+        if qry.key in dt:
+            return {
+                "ok" : True,
+                "result" : {
+                    "key" : "",
+                    "value" : dt.get(qry.key),
+                    "version" :""
+                },
+                "error" : None
+            }
+        return {
+            "ok" : False,
+            "result" : None,
+            "error" : {
+                "code" : "",
+                "data" : "",
+                "message" : "不存在的key"
+            }
+        }
 
 

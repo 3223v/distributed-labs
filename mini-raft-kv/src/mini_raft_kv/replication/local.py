@@ -1,3 +1,8 @@
+from mini_raft_kv.common.command import Command
+from mini_raft_kv.common.query import Query
+from mini_raft_kv.kv.state_machine import StateMachine
+from mini_raft_kv.replication.base import Engine
+from mini_raft_kv.storage.wal import WAL
 
 
 class LocalEngine(Engine):
@@ -6,9 +11,19 @@ class LocalEngine(Engine):
         self.wl = wl
         self.sm = sm
 
-    def submit(self,cmd:Command):
-        wl.append(cmd)
-        sm.apply(cmd)
+    async def submit(self,cmd:Command)->dict:
+        if not cmd.islegal():
+            return {
+                "ok" : False,
+                "result" : None,
+                "error" : {
+                    "code" : "",
+                    "data" : "",
+                    "message" : "参数不合法"
+                }
+            }
+        await wl.append(cmd)
+        return sm.apply(cmd)
 
-    def query(self,cmd:Command):
-        sm.apply(cmd)
+    async def query(self,qry:Query)->dict:
+        return sm.read(qry)
