@@ -29,7 +29,7 @@ class Server:
                 #     "seq": 7,
                 #     "config_id": 3,
                 #     "method": "Put",
-                #     "params": {"key": "x", "value": "1","version":}
+                #     "params": {"key": "x", "value": "1","version": 3}
                 # }
                 cmd = Command(
                     req.get("method"),
@@ -111,9 +111,9 @@ class Server:
     async def run(self):
         server = await asyncio.start_server(
             self.handle_client,
-            host = cg.host,
-            port = cg.port
+            host = self.cg.host,
+            port = self.cg.port
         )
-        log.info("RPC 服务启动", host=host, port=port)
+        log.info("RPC 服务启动", host=self.cg.host, port=self.cg.port)
         async with server:
             await server.serve_forever()

@@ -22,7 +22,7 @@ class Client:
         #     "seq": 7,
         #     "config_id": 3,
         #     "method": "Put",
-        #     "params": {"key": "x", "value": "1"}
+        #     "params": {"key": "x", "value": "1" , "version" : 3}
         # }
     
     async def call(self, method: str, params: dict = None) -> dict:
@@ -30,7 +30,7 @@ class Client:
         if method.lower() == "put" or method.lower() == "cas" or method.lower() == "del" :
             self.seq += 1
 
-        for attempr in range(self.max_retries):
+        for attempt in range(self.max_retries):
             #request_id 默认自增，发消息就会自增一次
             self.request_id +=1
             req = {
@@ -49,7 +49,7 @@ class Client:
                 )
 
                 # 发送请求（带超时控制）
-                encoded = await codec.encode_message(request)
+                encoded = await codec.encode_message(req)
                 writer.write(encoded)
                 await writer.drain()
 
@@ -76,7 +76,7 @@ class Client:
                 }
 
             except asyncio.TimeoutError:
-                log.warn("超时", request_id=current_req_id, attempt=attempt+1)
+                log.warn("超时", request_id=self.request_id, attempt=attempt+1)
                 # 超时重试，request_id 递增
                 self.request_id += 1
                 # 关闭可能残留的连接
@@ -93,8 +93,7 @@ class Client:
 
             except Exception as e:
                 log.error("异常", e = str(e) ,attempt = attempt +1)
-                # 其他异常也尝试重试
-                current_req_id += 1
+                # 其他异常也尝试重试（request_id 在循环顶部已自增，这里不再重复加）
                 try:
                     writer.close()
                     await writer.wait_closed()
@@ -105,6 +104,10 @@ class Client:
         # 所有重试失败
         return {
                 "ok": False, 
-                "result": "",
-                "error": "max retries exceeded"
+                "result": None,
+                "error": {
+                    "data" : "",
+                    "code" : "",
+                    "message" : "重试次数耗尽也连不上"
+                }
             }

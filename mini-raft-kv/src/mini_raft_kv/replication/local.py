@@ -22,8 +22,8 @@ class LocalEngine(Engine):
                     "message" : "参数不合法"
                 }
             }
-        await wl.append(cmd)
-        return sm.apply(cmd)
+        await self.wl.append(cmd)
+        return self.sm.apply(cmd)
 
     async def query(self,qry:Query)->dict:
-        return sm.read(qry)
+        return self.sm.read(qry)

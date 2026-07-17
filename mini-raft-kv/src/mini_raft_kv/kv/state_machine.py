@@ -1,13 +1,18 @@
 from mini_raft_kv.common.command import Command
 from mini_raft_kv.common.query import Query
 from mini_raft_kv.kv.client_table import ClientTable
-from functools import singledispatch
 
 class StateMachine():
 
     def __init__(self):
         self.ct = ClientTable()
         self.dt = dict()
+        # {
+        #     key:{
+        #         data :
+        #         version
+        #     }
+        # }
 
                 # 这里错误出参应该是
                 # {
@@ -30,7 +35,10 @@ class StateMachine():
         if self.ct.check(cmd.client_id,cmd.seq) == "new":
             if cmd.op.lower() == "put":
                 # put in dt save in dt
-                self.dt[cmd.key] = cmd.value
+                self.dt[cmd.key] = {
+                    "data" : cmd.value,
+                    "version" : cmd.version or -1
+                }
                 re = {
                     "ok":True,
                     "result":{
@@ -56,7 +64,35 @@ class StateMachine():
                 self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
                 return re
             elif cmd.op.lower() == "cas":
-                pass
+                e_v = self.dt[cmd.key]["version"]   # FIXME(逻辑): 原来写的 +=1 意图待定，CAS 不该在比较前改版本
+                re = {}
+                if e_v == cmd.version:
+                    # 正确
+                    self.dt[cmd.key] = {
+                        "data" : cmd.value,
+                        "version" : e_v
+                    }
+                    re = {
+                        "ok" :True,
+                        "result" : {
+                            "key" :"",
+                            "value" : self.dt[cmd.key]["data"],
+                            "version" : self.dt[cmd.key]["version"]
+                        },
+                        "error" : None
+                    }
+                else:
+                    re = {
+                        "ok" :False,
+                        "result" : None,
+                        "error" : {
+                            "data" : "",
+                            "message" : "version error",
+                            "code" : ""
+                        }
+                    }
+                self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
+                return re
             else:
                 return {
                     "ok" : False,
@@ -68,17 +104,31 @@ class StateMachine():
                     }
                 }
         elif self.ct.check(cmd.client_id,cmd.seq) == "duplicate":
-
+            # 返回旧的即可
+            re  = self.ct.return_old(cmd.client_id)
+            return {
+                "ok" : re["last_ok"],
+                "result" : re["last_result"],
+                "error" : re["last_error"]
+            }
         else:
-            return 
+            return {
+                "ok" : False,
+                "result" : None,
+                "error" : {
+                    "code" : "",
+                    "data" : "",
+                    "message" : "重复请求等错误"
+                }
+             }
 
     def read(self, qry) ->dict:
-        if qry.key in dt:
+        if qry.key in self.dt:
             return {
                 "ok" : True,
                 "result" : {
                     "key" : "",
-                    "value" : dt.get(qry.key),
+                    "value" : self.dt.get(qry.key).get("data"),
                     "version" :""
                 },
                 "error" : None

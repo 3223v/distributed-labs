@@ -3,13 +3,13 @@ import json
 import asyncio
 import binascii
 from mini_raft_kv.common import log
-# {"crc32": 123456789, "op": "Put", "key": "x", "value": "1", "client_id": "c1", "seq": 1}
+from mini_raft_kv.common.config import WalConfig
 
 class WAL:
-    def __init__(self, path: str, sync_mode="always"):
+    def __init__(self, cfg :WalConfig):
         """path: wal 文件路径，如 data/wal.log"""
-        self.path = path
-        self.sync_mode = sync_mode
+        self.path = cfg.path
+        self.sync_mode = cfg.sync_mode
 
     async def append(self, record: dict) -> None:
         """追加一条记录到 WAL。sync=always 时每条都 fsync"""
@@ -63,6 +63,8 @@ class WAL:
                 log.error("WAL crc32 不匹配，截断", stored=stored_crc, computed=re_crc)
                 break
 
+            #原样返回，剔掉crc32
+            data.pop("crc32")
             result.append(data)
             valid_bytes += len(line)
 
