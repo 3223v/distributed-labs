@@ -11,8 +11,16 @@ class WAL:
         self.path = cfg.path
         self.sync_mode = cfg.sync_mode
 
-    async def append(self, record: dict) -> None:
+    async def append(self, cmd: Command) -> None:
         """追加一条记录到 WAL。sync=always 时每条都 fsync"""
+        record = {
+            "key" : cmd.key,
+            "op" : cmd.op,
+            "value" : cmd.value,
+            "seq" : cmd.seq,
+            "version" : cmd.version,
+            "request_id" : cmd.request_id
+        }
         with open(self.path, "a") as f:
             append_str  = json.dumps(record)
             
@@ -29,7 +37,7 @@ class WAL:
                 f.flush()
                 await asyncio.to_thread(os.fsync, f.fileno())
 
-    async def replay(self) -> list[dict]:
+    async def replay(self) -> list[Command]:
         """启动时重放 WAL，返回所有有效记录。遇损坏记录则截断"""
         result = []
         if not os.path.exists(self.path):
@@ -63,9 +71,9 @@ class WAL:
                 log.error("WAL crc32 不匹配，截断", stored=stored_crc, computed=re_crc)
                 break
 
-            #原样返回，剔掉crc32
-            data.pop("crc32")
-            result.append(data)
+            # data 映射回cmd
+            cmd = Command(data["op"],data["key"],data["value"],data["client_id"],data[seq],data[version],data[request_id])
+            result.append(cmd)
             valid_bytes += len(line)
 
         # 有损坏行则截断文件

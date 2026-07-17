@@ -21,6 +21,13 @@ class Server:
                 req = await codec.decode_message(reader)
                 if req is None:
                     break
+                # 版本对比，不对直接错误
+                if req["v"] != self.cg["v"]:
+                    resp = {
+                        "ok" : False,
+                        "result" : None,
+                        "error": None
+                    }
                 # 这里对入参json->command 并且后续流转都用command
                 # {
                 #     "v": 1,
@@ -41,7 +48,7 @@ class Server:
                     req.get("request_id")
                 )
                 qry = Query(
-                    req.get("key"),
+                    req.get("params",{}).get("key"),
                     req.get("params",{}).get("config_id","")
                 )
                 if req.get("method").lower() == "get":
@@ -95,6 +102,8 @@ class Server:
                 #     "data":"",
                 #     "message":""
                 # }
+                resp["v"] = self.cg["v"]
+                resp["request_id"] = req["request_id"]
                 data = await codec.encode_message(resp)
                 writer.write(data)         # 同步写入缓冲区
                 await writer.drain()       # 确保数据发送

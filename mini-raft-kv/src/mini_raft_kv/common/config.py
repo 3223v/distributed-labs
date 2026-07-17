@@ -14,9 +14,10 @@ class ServerConfig:
     def __init__(self, data: dict):
         self.host = data.get("host", "127.0.0.1")
         self.port = data.get("port", 8000)
+        self.v = data.get("v", 1)
 
     def __repr__(self):
-        return f"ServerConfig(host={self.host}, port={self.port})"
+        return f"ServerConfig(host={self.host}, port={self.port}, v={self.v})"
 
 
 class ClientConfig:
@@ -25,9 +26,10 @@ class ClientConfig:
         self.port = data.get("port", 8000)
         self.timeout = data.get("timeout", 5.0)
         self.max_retries = data.get("max_retries", 3)
+        self.v = data.get("v", 1)
 
     def __repr__(self):
-        return f"ClientConfig(host={self.host}, port={self.port})"
+        return f"ClientConfig(host={self.host}, port={self.port}, v={self.v})"
 
 
 class WalConfig:

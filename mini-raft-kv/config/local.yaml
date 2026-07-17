@@ -3,12 +3,14 @@
 server:
   host: "127.0.0.1"
   port: 8000
+  v: 1
 
 client:
   host: "127.0.0.1"
   port: 8000
   timeout: 5.0
   max_retries: 3
+  v: 1
 
 wal:
   path: "data/wal.log"
