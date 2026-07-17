@@ -22,7 +22,7 @@ class Server:
                 if req is None:
                     break
                 # 版本对比，不对直接错误
-                if req["v"] != self.cg["v"]:
+                if req["v"] != self.cg.v:
                     resp = {
                         "ok" : False,
                         "result" : None,
@@ -102,7 +102,7 @@ class Server:
                 #     "data":"",
                 #     "message":""
                 # }
-                resp["v"] = self.cg["v"]
+                resp["v"] = self.cg.v
                 resp["request_id"] = req["request_id"]
                 data = await codec.encode_message(resp)
                 writer.write(data)         # 同步写入缓冲区

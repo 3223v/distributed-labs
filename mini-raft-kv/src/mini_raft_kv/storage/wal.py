@@ -3,6 +3,7 @@ import json
 import asyncio
 import binascii
 from mini_raft_kv.common import log
+from mini_raft_kv.common.command import Command
 from mini_raft_kv.common.config import WalConfig
 
 class WAL:
@@ -17,6 +18,7 @@ class WAL:
             "key" : cmd.key,
             "op" : cmd.op,
             "value" : cmd.value,
+            "client_id" : cmd.client_id,
             "seq" : cmd.seq,
             "version" : cmd.version,
             "request_id" : cmd.request_id
@@ -72,7 +74,7 @@ class WAL:
                 break
 
             # data 映射回cmd
-            cmd = Command(data["op"],data["key"],data["value"],data["client_id"],data[seq],data[version],data[request_id])
+            cmd = Command(data["op"],data["key"],data["value"],data["client_id"],data["seq"],data["version"],data["request_id"])
             result.append(cmd)
             valid_bytes += len(line)
 
