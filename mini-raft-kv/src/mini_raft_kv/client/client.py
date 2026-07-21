@@ -40,7 +40,7 @@ class Client:
                 "client_id" : self.client_id,
                 "config_id" : self.config_id,
                 "method" : method,
-                "params" : params
+                "params" : params or {}
             }
             try:
                 # 建立连接

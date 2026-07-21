@@ -28,6 +28,12 @@ class Server:
                         "result" : None,
                         "error": None
                     }
+                    resp["v"] = self.cg.v
+                    resp["request_id"] = req["request_id"]
+                    data = await codec.encode_message(resp)
+                    writer.write(data)
+                    await writer.drain()
+                    continue
                 # 这里对入参json->command 并且后续流转都用command
                 # {
                 #     "v": 1,

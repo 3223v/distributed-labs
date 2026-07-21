@@ -51,7 +51,9 @@ class StateMachine():
                 self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
                 return re
             elif cmd.op.lower() == "del":
-                tmp = self.dt.pop(cmd.key)
+                tmp = ""
+                if cmd.key in self.dt:
+                    tmp = self.dt.pop(cmd.key)
                 re = {
                     "ok":True,
                     "result":{
@@ -64,7 +66,9 @@ class StateMachine():
                 self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
                 return re
             elif cmd.op.lower() == "cas":
-                e_v = self.dt[cmd.key]["version"]   # FIXME(逻辑): 原来写的 +=1 意图待定，CAS 不该在比较前改版本
+                if cmd.key in self.dt:
+                    e = self.dt[cmd.key]   # FIXME(逻辑): 原来写的 +=1 意图待定，CAS 不该在比较前改版本
+                e_v = e.get("version",0)
                 re = {}
                 if e_v == cmd.version:
                     # 正确

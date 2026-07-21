@@ -36,6 +36,8 @@ class WalConfig:
     def __init__(self, data: dict):
         self.path = data.get("path", "data/wal.log")
         self.sync_mode = data.get("sync_mode", "always")
+        self.batch_count = data.get("batch_count",10)
+        self.batch_interval_ms = data.get("batch_interval_ms",1000)
 
     def __repr__(self):
         return f"WalConfig(path={self.path}, sync_mode={self.sync_mode})"
@@ -98,6 +100,9 @@ def _parse_simple_yaml(path: str) -> dict:
             key, _, value_str = stripped.partition(":")
             key = key.strip()
             value_str = value_str.strip()
+            # 去掉行内注释（# 及之后内容）
+            if "#" in value_str:
+                value_str = value_str.split("#")[0].strip()
 
             if value_str in ("", "null", "~"):
                 value = None

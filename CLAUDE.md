@@ -2,9 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Working Mode: Mentor, Not Coder
+## Working Mode: Division of Labor
 
-The user is learning distributed systems by writing all code themselves. Claude's role is **mentor**: guide design, ask questions, review and test code, verify acceptance criteria, and help write docs — **do not fix or write implementation code** unless explicitly asked.
+The user is learning distributed systems by writing all implementation code themselves. Claude's role:
+
+- **Claude does**: tests, documentation (README.md, design.md), code review, acceptance verification, architecture guidance, refactoring wiring (imports/names/syntax) when asked.
+- **User does**: all business logic and feature implementation.
+- **No per-week milestone docs** — only `docs/design.md` is maintained as the cumulative architecture document. No `docs/milestones/week-XX.md` files.
 
 ## Project Overview
 
@@ -16,9 +20,10 @@ Everything is Python asyncio for the first 12 weeks; C++ reimplementation only c
 
 ## Current Progress
 
-- **Implemented** (transport + single-node KV foundations): `common/log.py` (colored structured logging), `config.py` (mini YAML parser + typed config), `rpc/codec.py` (length-prefix JSON), `rpc/server.py` (dispatch + in-memory KV + `dedup_table`), `client/client.py` (timeout + retry, `seq` fixed across retries), `storage/wal.py` (append with crc32, replay with corrupted-tail truncation), `kv/store.py` (in progress).
-- **Not started**: network simulator, `replication/` (ReplicationEngine + engines), snapshot, `raft/`, `sharding/`, all tests (`tests/unit|integration|fault` are empty skeletons). `pyproject.toml`, `README.md`, `docker-compose.yml` are empty placeholders.
-- `docs/learn/` holds the user's study notes (asyncio, socket, struct, crc32).
+- **Week 3 (LocalEngine + KV + WAL)**: Core done — layer architecture (Server→Engine→StateMachine→WAL), ReplicationEngine interface + LocalEngine, WAL append/replay with crc32 + tail truncation, request dedup (client_id+seq in state machine apply), crash recovery. Acceptance tests pass (Put/Get/Delete, kill-9 restart, WAL corruption, dedup). **Remaining**: WAL `sync=batch` mode, state machine del/CAS edge case fixes.
+- **Implemented modules**: `common/{log,codec,config,command,query}`, `rpc/server`, `client/client`, `replication/{base,local}`, `kv/{state_machine,client_table}`, `storage/wal`, `scripts/start_local`.
+- **Not started**: network simulator, PrimaryBackupEngine, snapshot, Raft, sharding, `pyproject.toml`, `docker-compose.yml`.
+- **Package layout deviates from plan §4**: `codec`, `config`, `command`, `query` are in `common/` instead of their original planned locations (`rpc/`, root, `kv/`). This is intentional — shared modules live in `common/`.
 
 ## Architecture
 
@@ -73,23 +78,33 @@ WAL record: one JSON per line, with `crc32` field; replay validates checksums an
 ```bash
 cd mini-raft-kv
 
-# Server (entry point; scripts insert src/ into sys.path)
+# Server
 python3 scripts/start_local.py
-
-# Or run the package directly
+# or
 PYTHONPATH=src python3 -m mini_raft_kv.app
 
-# Ad-hoc module check (no test framework configured yet; tests/ dirs are empty)
-PYTHONPATH=src python3 -c "from mini_raft_kv.rpc import codec; ..."
+# Integration tests
+PYTHONPATH=src python3 tests/integration/test_basic.py
+PYTHONPATH=src python3 tests/integration/test_recovery.py
+PYTHONPATH=src python3 tests/integration/test_dedup.py
+
+# Unit tests
+PYTHONPATH=src python3 tests/unit/test_wal.py
+
+# Verify all modules compile
+find src scripts tests -name "*.py" -exec python3 -m py_compile {} +
+
+# Single module verify
+PYTHONPATH=src python3 -c "from mini_raft_kv.common import codec; print('ok')"
 ```
 
-Config: `config/local.yaml` (server/client/wal/log sections); loaded via `mini_raft_kv.config.load_config`. Planned configs: `primary-backup.yaml`, `raft-3.yaml`, `raft-5.yaml`, `sharded-raft.yaml`.
+Config: `config/local.yaml` (server/client/wal/log sections); loaded via `mini_raft_kv.common.config.load_config`. Planned configs: `primary-backup.yaml`, `raft-3.yaml`, `raft-5.yaml`, `sharded-raft.yaml`.
 
 ## Documentation & Commit Conventions
 
-Weekly cadence (see plan §8): keep `README.md` and `docs/design.md` cumulative and current; per-week increments go in `docs/milestones/week-XX.md` — never copy code between docs.
+**Only `docs/design.md`** is maintained as the cumulative architecture document (updated each week). No per-week milestone files. README.md kept current by Claude.
 
-Commits are **module-prefixed**, not week-prefixed (the old `week03: ...` style is deprecated):
+Commits are **module-prefixed**:
 
 ```
 storage: add wal append and checksum

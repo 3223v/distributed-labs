@@ -11,9 +11,32 @@ class WAL:
         """path: wal 文件路径，如 data/wal.log"""
         self.path = cfg.path
         self.sync_mode = cfg.sync_mode
+        self.batch_count = cfg.batch_count
+        self.bc = cfg.batch_count
+        self.in_ms = cfg.batch_interval_ms
+        self.fd = None
+        self.unsynced = 0
+        self.running = False
+    
+    async def start(self):
+        self.fd = open(self.path, "a") 
+        self.running  = True
+        if self.sync_mode == "timer":
+            self.timer_task = asyncio.create_task(self.periodic_sync())
+
+    async def periodic_sync(self):
+        """后台协程：每 batch_interval_ms 毫秒 fsync 一次（兜底）"""
+        while self.running:
+            await asyncio.sleep(self.in_ms / 1000)   # 比如 100ms
+            if self.unsynced > 0:
+                self.fd.flush()
+                await asyncio.to_thread(os.fsync, self.fd.fileno())
+                self.unsynced = 0
+                log.debug("batch timer fsync")
 
     async def append(self, cmd: Command) -> None:
         """追加一条记录到 WAL。sync=always 时每条都 fsync"""
+        self.bc -=1
         record = {
             "key" : cmd.key,
             "op" : cmd.op,
@@ -23,21 +46,30 @@ class WAL:
             "version" : cmd.version,
             "request_id" : cmd.request_id
         }
-        with open(self.path, "a") as f:
-            append_str  = json.dumps(record)
+        append_str  = json.dumps(record)
+        
+        append_str_bytes = append_str.encode("utf-8")
+
+        crc = binascii.crc32(append_str_bytes) & 0xffffffff
+
+        record["crc32"] = crc
+
+        full = json.dumps(record)
+
+        self.fd.write(full+"\n")
+        if self.sync_mode == "always":
+            self.fd.flush()
+            await asyncio.to_thread(os.fsync, self.fd.fileno())
+        if self.sync_mode in ("batch", "timer"):
+            self.unsynced += 1
+            if self.bc <= 0:
+                self.fd.flush()
+                self.reset_bc()
+                await asyncio.to_thread(os.fsync, self.fd.fileno())
+                self.unsynced = 0
             
-            append_str_bytes = append_str.encode("utf-8")
-
-            crc = binascii.crc32(append_str_bytes) & 0xffffffff
-
-            record["crc32"] = crc
-
-            full = json.dumps(record)
-
-            f.write(full+"\n")
-            if self.sync_mode == "always":
-                f.flush()
-                await asyncio.to_thread(os.fsync, f.fileno())
+    def reset_bc(self):
+        self.bc = self.batch_count
 
     async def replay(self) -> list[Command]:
         """启动时重放 WAL，返回所有有效记录。遇损坏记录则截断"""
@@ -87,7 +119,19 @@ class WAL:
 
         return result    
 
-    async def close(self):
-        """关闭 WAL 文件"""
-        # with 打开自动关闭
-        pass
+    async def stop(self):
+        """关闭：停定时器 → 最后 fsync → 关文件"""
+        self.running = False
+        if hasattr(self, "timer_task") and self.timer_task:
+            self.timer_task.cancel()
+            try:
+                await self.timer_task
+            except asyncio.CancelledError:
+                pass
+        if self.fd:
+            if self.unsynced > 0:
+                self.fd.flush()
+                await asyncio.to_thread(os.fsync, self.fd.fileno())
+                self.unsynced = 0
+            self.fd.close()
+            self.fd = None

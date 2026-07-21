@@ -14,7 +14,9 @@ client:
 
 wal:
   path: "data/wal.log"
-  sync_mode: always          # always | batch
+  sync_mode: always          # always | batch | timer
+  batch_count: 10
+  batch_interval_ms: 1000                # 1s 写一次
 
 log:
   level: info                # debug | info | warn | error
