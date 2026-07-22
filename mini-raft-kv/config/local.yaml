@@ -25,3 +25,6 @@ log:
 
 sst:
   path : "data/.tmp"
+
+rc:
+  mode : ""
