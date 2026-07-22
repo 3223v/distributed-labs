@@ -85,6 +85,8 @@ class Server:
                         },
                         "error":None
                     }
+                elif req.get("method").lower() == "snapshot":
+                    resp = await self.eg.snapshot()
                 else:
                     resp = {
                         "ok" : False,

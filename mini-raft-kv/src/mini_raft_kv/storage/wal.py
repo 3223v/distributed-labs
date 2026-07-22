@@ -17,12 +17,34 @@ class WAL:
         self.fd = None
         self.unsynced = 0
         self.running = False
+        self.index = 0
     
     async def start(self):
-        self.fd = open(self.path, "a") 
+        self.fd = open(self.path, "a")
         self.running  = True
+        # 从已有 WAL 文件恢复 index 计数（重启后 index 不从 0 开始）
+        self.index = await self._max_index()
         if self.sync_mode == "timer":
             self.timer_task = asyncio.create_task(self.periodic_sync())
+
+    async def _max_index(self) -> int:
+        """扫描已有 WAL，返回最大 index"""
+        max_idx = 0
+        if not os.path.exists(self.path):
+            return max_idx
+        with open(self.path, "r") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    data = json.loads(stripped)
+                    idx = data.get("index", 0)
+                    if idx > max_idx:
+                        max_idx = idx
+                except json.JSONDecodeError:
+                    continue
+        return max_idx
 
     async def periodic_sync(self):
         """后台协程：每 batch_interval_ms 毫秒 fsync 一次（兜底）"""
@@ -36,6 +58,7 @@ class WAL:
 
     async def append(self, cmd: Command) -> None:
         """追加一条记录到 WAL。sync=always 时每条都 fsync"""
+        self.index += 1
         self.bc -=1
         record = {
             "key" : cmd.key,
@@ -46,6 +69,9 @@ class WAL:
             "version" : cmd.version,
             "request_id" : cmd.request_id
         }
+
+        record["index"] = self.index
+
         append_str  = json.dumps(record)
         
         append_str_bytes = append_str.encode("utf-8")
@@ -135,3 +161,60 @@ class WAL:
                 self.unsynced = 0
             self.fd.close()
             self.fd = None
+    
+    async def truncate_before(self, index: int):
+        """截断 index <= 指定值的所有记录。原子操作：写 .tmp → fsync → rename → 重开 fd"""
+        if not os.path.exists(self.path):
+            return
+
+        # 1. 读现有全部有效行，只保留 index > 截断值的
+        with open(self.path, "r") as f:
+            all_lines = f.readlines()
+
+        kept_lines = []
+        kept_count = 0
+        for line in all_lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                data = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+
+            # 校验 CRC（和 replay 相同的逻辑）
+            stored_crc = data.pop("crc32", None)
+            if stored_crc is None:
+                continue
+            recomputed = json.dumps(data).encode("utf-8")
+            re_crc = binascii.crc32(recomputed) & 0xffffffff
+            if re_crc != stored_crc:
+                continue
+            data["crc32"] = stored_crc
+
+            # 保留 index > 截断值的行
+            if data.get("index", 0) > index:
+                kept_lines.append(json.dumps(data) + "\n")
+                kept_count += 1
+
+        # 2. 关闭当前 fd，原子写新文件
+        if self.fd:
+            self.fd.close()
+            self.fd = None
+
+        tmp_path = self.path + ".truncate.tmp"
+        with open(tmp_path, "w") as f:
+            for ln in kept_lines:
+                f.write(ln)
+            f.flush()
+            await asyncio.to_thread(os.fsync, f.fileno())
+
+        # 3. 原子 rename + fsync 目录
+        os.rename(tmp_path, self.path)
+        dir_fd = os.open(os.path.dirname(self.path) or ".", os.O_RDONLY)
+        await asyncio.to_thread(os.fsync, dir_fd)
+        os.close(dir_fd)
+
+        # 4. 重新打开 fd
+        self.fd = open(self.path, "a")
+        log.info("WAL 已截断", path=self.path, kept=kept_count)

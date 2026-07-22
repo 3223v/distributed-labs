@@ -1,0 +1,1 @@
+{"last_applied": 7, "kv": {}, "client_table": {"test-basic": {"last_seq": 2, "last_ok": true, "last_result": {"key": "", "value": {"data": "alice", "version": 1}, "version": ""}, "last_error": null}, "cli": {"last_seq": 5, "last_ok": true, "last_result": {"key": "", "value": {"data": "bob", "version": 3}, "version": ""}, "last_error": null}}}

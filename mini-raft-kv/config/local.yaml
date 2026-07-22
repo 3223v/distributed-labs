@@ -22,3 +22,6 @@ log:
   level: info                # debug | info | warn | error
   file: null                 # null = 只输出到控制台
   color: true
+
+sst:
+  path : "data/.tmp"

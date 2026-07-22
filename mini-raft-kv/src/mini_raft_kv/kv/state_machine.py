@@ -7,6 +7,7 @@ class StateMachine():
     def __init__(self):
         self.ct = ClientTable()
         self.dt = dict()
+        self.last_applied = 0
         # {
         #     key:{
         #         data :
@@ -32,12 +33,17 @@ class StateMachine():
                 # }
 
     def apply(self, cmd) ->dict:
+
         if self.ct.check(cmd.client_id,cmd.seq) == "new":
+            self.last_applied += 1
             if cmd.op.lower() == "put":
                 # put in dt save in dt
+                existing = self.dt.get(cmd.key)
+                new_version = (existing["version"] + 1) if existing else 1
+
                 self.dt[cmd.key] = {
-                    "data" : cmd.value,
-                    "version" : cmd.version or -1
+                    "data": cmd.value,
+                    "version": new_version
                 }
                 re = {
                     "ok":True,
@@ -49,6 +55,7 @@ class StateMachine():
                     "error":None
                 }
                 self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
+                self.last_applied += 1
                 return re
             elif cmd.op.lower() == "del":
                 tmp = ""
@@ -64,17 +71,20 @@ class StateMachine():
                     "error":None
                 }
                 self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
+                self.last_applied += 1
                 return re
             elif cmd.op.lower() == "cas":
-                if cmd.key in self.dt:
-                    e = self.dt[cmd.key]   # FIXME(逻辑): 原来写的 +=1 意图待定，CAS 不该在比较前改版本
-                e_v = e.get("version",0)
+                if cmd.key not in self.dt:
+                    e_v = 0
+                else:
+                    e_v = self.dt[cmd.key].get("version")
                 re = {}
                 if e_v == cmd.version:
                     # 正确
+                    n_v = e_v +1
                     self.dt[cmd.key] = {
                         "data" : cmd.value,
-                        "version" : e_v
+                        "version" : n_v
                     }
                     re = {
                         "ok" :True,
@@ -96,6 +106,7 @@ class StateMachine():
                         }
                     }
                 self.ct.record(cmd.client_id,cmd.seq,re.get("ok"),re.get("result"),re.get("error"))
+                self.last_applied += 1
                 return re
             else:
                 return {

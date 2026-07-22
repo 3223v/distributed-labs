@@ -26,7 +26,7 @@ class ClientTable:
         return self.data.get(client_id,{})
 
     def to_dict(self):
-        pass
+        return dict(self.data)
     
-    def from_dict(self):
-        pass
+    def from_dict(self,d):
+        self.data = dict(d)
