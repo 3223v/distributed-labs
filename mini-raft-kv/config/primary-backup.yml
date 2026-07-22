@@ -1,0 +1,10 @@
+replication:
+  mode: primary_backup
+
+primary:
+  host: "127.0.0.1"
+  port: 8000
+                        
+backup:                                                                     
+  host: "127.0.0.1"
+  port: 8001

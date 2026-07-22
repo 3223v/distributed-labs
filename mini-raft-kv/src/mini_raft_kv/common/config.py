@@ -59,6 +59,13 @@ class SnapShotConfig:
     def __repr__(self):
         return f"SnapShotConfig(path={self.path})"
 
+class ReplicationConfig:
+    def __init__(self, data: dict):
+        self.mode = data.get("mode")
+
+    def __repr__(self):
+        return f"ReplicationConfig(mode={self.mode})"
+
 
 class Config:
     def __init__(self, data: dict):
@@ -67,6 +74,7 @@ class Config:
         self.wal = WalConfig(data.get("wal", {}))
         self.log = LogConfig(data.get("log", {}))
         self.sst = SnapShotConfig(data.get("sst",{}))
+        self.rc = ReplicationConfig(data.get("rc",{}))
 
     def __repr__(self):
         return f"Config(server={self.server}, client={self.client})"
